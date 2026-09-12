@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_DOMJUDGE_API_URL || 'https://cp-codetoday.web.id/api/v4',
+  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api'),
   timeout: 15000,
   headers: { Accept: 'application/json' },
 })
@@ -27,18 +27,21 @@ const problems = {
 }
 
 const submissions = {
-  create: (contestId, formData) => api.post(`/contests/${contestId}/submissions`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  create: (contestId, submission) => api.post(`/contests/${contestId}/submissions`, submission),
   list: (contestId, userId) => api.get(`/contests/${contestId}/submissions`, {
     params: userId ? { user: userId } : undefined,
   }),
-  detail: (contestId, submissionId) => api.get(`/contests/${contestId}/submissions/${submissionId}`),
+  detail: (_contestId, submissionId) => api.get(`/submissions/${submissionId}`),
 }
 
 const scoreboard = {
   detail: (contestId) => api.get(`/contests/${contestId}/scoreboard`),
 }
 
-export { api, contests, problems, submissions, scoreboard }
+const auth = {
+  teamLoginUrl: import.meta.env.VITE_DOMJUDGE_TEAM_URL || (import.meta.env.DEV ? 'https://cp-codetoday.web.id/team' : '/team'),
+  logoutUrl: import.meta.env.VITE_DOMJUDGE_LOGOUT_URL || (import.meta.env.DEV ? 'https://cp-codetoday.web.id/logout' : '/logout'),
+}
+
+export { api, auth, contests, problems, submissions, scoreboard }
 export default api

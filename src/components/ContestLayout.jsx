@@ -10,7 +10,7 @@ const menuItems = [
 ]
 
 function ContestLayout() {
-  const { cid = '1' } = useParams()
+  const { cid = 'demo' } = useParams()
 
   return (
     <div className="contest-shell">

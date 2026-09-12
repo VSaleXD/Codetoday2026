@@ -7,7 +7,7 @@ import { problems, submissions } from '../services/api'
 
 const languageConfig = {
   cpp: { label: 'C++17', monaco: 'cpp', fileName: 'main.cpp', defaultCode: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    return 0;\n}' },
-  python: { label: 'Python 3', monaco: 'python', fileName: 'main.py', defaultCode: 'def solve():\n    pass\n\nif __name__ == "__main__":\n    solve()' },
+  python3: { label: 'Python 3', monaco: 'python', fileName: 'main.py', defaultCode: 'def solve():\n    pass\n\nif __name__ == "__main__":\n    solve()' },
   java: { label: 'Java 17', monaco: 'java', fileName: 'Main.java', defaultCode: 'public class Main {\n    public static void main(String[] args) {\n    }\n}' },
 }
 
@@ -18,12 +18,8 @@ const verdictStyles = {
   runtime_error: { label: 'Runtime Error', className: 'wrong', icon: AlertCircle },
 }
 
-function normalizeStatement(statement = '') {
-  return statement.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/ on\w+="[^"]*"/gi, '')
-}
-
 function ProblemDetail() {
-  const { cid = '1', problemId = 'A' } = useParams()
+  const { cid = 'demo', problemId = 'A' } = useParams()
   const queryClient = useQueryClient()
   const [language, setLanguage] = useState('cpp')
   const [code, setCode] = useState(languageConfig.cpp.defaultCode)
@@ -47,15 +43,15 @@ function ProblemDetail() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const formData = new FormData()
-      formData.append('problem', problemId)
-      formData.append('language', language)
-      formData.append('code', new File([code], languageConfig[language].fileName, { type: 'text/plain' }))
-      return (await submissions.create(cid, formData)).data
+      return (await submissions.create(cid, {
+        code,
+        language_id: language,
+        problem_id: problemId,
+      })).data
     },
     onSuccess: (data) => {
       setSubmitError('')
-      setSubmissionId(data.id || data.submission_id)
+      setSubmissionId(data.id || data.submission_id || data.submission?.id)
       queryClient.invalidateQueries({ queryKey: ['submissions', cid] })
     },
     onError: (error) => setSubmitError(error.response?.data?.message || 'Tidak dapat mengirim solusi. Periksa koneksi API dan kredensial DOMjudge.'),
@@ -67,10 +63,11 @@ function ProblemDetail() {
 
   const currentStatus = submissionQuery.data?.judgement?.verdict || submissionQuery.data?.verdict || (submitMutation.isPending ? 'pending' : '')
   const verdict = verdictStyles[String(currentStatus).toLowerCase()]
-  const statement = problemQuery.data?.statement || problemQuery.data?.body || '<p>Deskripsi soal belum tersedia.</p>'
-  const samples = problemQuery.data?.samples || []
-  const title = problemQuery.data?.name || problemQuery.data?.label || `Problem ${problemId}`
-  const limits = useMemo(() => ({ time: problemQuery.data?.time_limit || '1 s', memory: problemQuery.data?.memory_limit || '512 MB' }), [problemQuery.data])
+  const problem = problemQuery.data?.problem || problemQuery.data || {}
+  const statement = problemQuery.data?.statement
+  const samples = problem.samples || problemQuery.data?.samples || []
+  const title = problem.name || problem.label || `Problem ${problemId}`
+  const limits = useMemo(() => ({ time: problem.time_limit ? `${problem.time_limit} s` : '1 s', memory: problem.memory_limit || '512 MB' }), [problem])
 
   return (
     <main className="workspace-page">
@@ -84,7 +81,9 @@ function ProblemDetail() {
           {problemQuery.isError && <div className="error-state"><AlertCircle /> Gagal memuat soal. Pastikan endpoint DOMjudge dapat diakses.</div>}
           {!problemQuery.isLoading && !problemQuery.isError && <>
             <div className="limit-row"><span><Clock3 size={16} /> {limits.time}</span><span><MemoryStick size={16} /> {limits.memory}</span></div>
-            <section className="statement" dangerouslySetInnerHTML={{ __html: normalizeStatement(statement) }} />
+            {statement?.mimeType?.startsWith('application/pdf') && <iframe className="statement-pdf" title={`Statement ${title}`} src={`data:application/pdf;base64,${statement.base64}`} />}
+            {statement && !statement.mimeType?.startsWith('application/pdf') && <div className="statement">Statement tersedia sebagai {statement.mimeType}.</div>}
+            {!statement && <div className="empty-state">Statement soal belum tersedia dari DOMjudge.</div>}
             {samples.length > 0 && <section className="samples"><h2>Sample Case</h2>{samples.map((sample, index) => <div className="sample" key={index}><strong>Sample {index + 1}</strong><pre>{sample.input || sample.in}</pre><pre>{sample.output || sample.out}</pre></div>)}</section>}
           </>}
         </article>
